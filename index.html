@@ -1,0 +1,384 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Gram2City — Real Homes of Bangladesh</title>
+
+  <!-- Tailwind CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    :root{
+      --primary: #d35400;
+      --accent: #27ae60;
+      --bg: #fcfbf9;
+      --surface: #ffffff;
+      --muted: #6b7280;
+      --text: #0f1724;
+    }
+    [data-theme="dark"]{
+      --bg: #071026;
+      --surface: #071826;
+      --muted: #9ca3af;
+      --text: #e6eef6;
+      --primary: #fb923c;
+    }
+    html,body{background:var(--bg); color:var(--text); height:100%}
+    .stay-card{transition:transform .18s ease, box-shadow .18s ease}
+    .stay-card:hover{transform:translateY(-6px); box-shadow:0 18px 40px rgba(2,6,23,.18)}
+    /* small helpers */
+    .chip{font-size:11px;padding:.25rem .5rem;border-radius:999px;background:rgba(39,174,96,.08);color:var(--accent)}
+    .muted{color:var(--muted)}
+    /* modal base */
+    .modal-backdrop{background:rgba(2,6,23,.6)}
+  </style>
+</head>
+<body class="antialiased" id="top">
+  <div class="max-w-6xl mx-auto px-4 py-6">
+    <!-- Header -->
+    <header class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-3">
+        <img src="assets/logo.svg" alt="Gram2City" class="h-12 w-auto" />
+        <div>
+          <div class="text-lg font-bold leading-tight">Gram2City</div>
+          <div class="text-xs muted">From village roots to city lights</div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <button id="themeToggle" class="px-3 py-2 border rounded-md text-sm">🌙</button>
+        <button id="favoritesBtn" class="px-3 py-2 border rounded-md text-sm">❤ Favorites</button>
+        <a href="#" id="githubLink" class="px-3 py-2 border rounded-md text-sm hidden">GitHub</a>
+      </div>
+    </header>
+
+    <!-- Search / Filter -->
+    <section class="bg-white rounded-2xl p-4 shadow mb-5">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+        <input id="destinationInput" type="text" placeholder="Destination / district / area (e.g. Sylhet, Cox's Bazar)" class="border rounded px-3 py-2" />
+        <select id="travelerTypeSelect" class="border rounded px-3 py-2">
+          <option value="any">Any traveler</option>
+          <option value="domestic">Domestic</option>
+          <option value="international">International</option>
+        </select>
+        <input id="maxBudgetInput" type="number" min="0" placeholder="Max budget (৳/night)" class="border rounded px-3 py-2" />
+        <div class="flex gap-2">
+          <button id="searchBtn" class="bg-[var(--primary)] text-white px-4 py-2 rounded-full">Search</button>
+          <button id="clearBtn" class="border px-4 py-2 rounded-full">Clear</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- Categories -->
+    <section class="mb-5">
+      <div class="flex flex-wrap gap-2">
+        <button class="cat-btn px-3 py-1 rounded-full border bg-white text-sm" data-cat="all">All</button>
+        <button class="cat-btn px-3 py-1 rounded-full border bg-white text-sm" data-cat="Hills">Hills</button>
+        <button class="cat-btn px-3 py-1 rounded-full border bg-white text-sm" data-cat="Tea & Forest">Tea & Forest</button>
+        <button class="cat-btn px-3 py-1 rounded-full border bg-white text-sm" data-cat="River & Rural">River & Rural</button>
+        <button class="cat-btn px-3 py-1 rounded-full border bg-white text-sm" data-cat="Heritage">Heritage</button>
+        <button class="cat-btn px-3 py-1 rounded-full border bg-white text-sm" data-cat="Beach & Island">Beach & Island</button>
+        <button class="cat-btn px-3 py-1 rounded-full border bg-white text-sm" data-cat="Rooftop">Rooftop</button>
+      </div>
+    </section>
+
+    <!-- Controls + Results header -->
+    <section class="flex items-center justify-between mb-4">
+      <div id="resultCount" class="text-sm muted">Showing stays</div>
+      <div class="flex items-center gap-3">
+        <label class="text-sm muted">Sort</label>
+        <select id="sortSelect" class="border rounded px-2 py-1 text-sm">
+          <option value="relevance">Relevance</option>
+          <option value="price-asc">Price: Low → High</option>
+          <option value="price-desc">Price: High → Low</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Grid -->
+    <main>
+      <div id="staysGrid" class="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 mb-6"></div>
+
+      <!-- Pagination -->
+      <div class="flex items-center justify-center gap-3 mb-10">
+        <button id="prevPage" class="px-3 py-1 border rounded">Prev</button>
+        <div id="pageInfo" class="text-sm muted"></div>
+        <button id="nextPage" class="px-3 py-1 border rounded">Next</button>
+      </div>
+    </main>
+  </div>
+
+  <!-- Stay Detail Modal -->
+  <div id="stayModal" class="fixed inset-0 hidden items-center justify-center z-50">
+    <div class="absolute inset-0 modal-backdrop"></div>
+    <div class="relative max-w-3xl w-full mx-4">
+      <div class="bg-[var(--surface)] rounded-xl overflow-hidden shadow-lg">
+        <div class="p-4 border-b flex justify-between items-start">
+          <div>
+            <h3 id="modalTitle" class="text-lg font-semibold"></h3>
+            <div id="modalLocation" class="text-sm muted mt-1"></div>
+          </div>
+          <div class="flex gap-2">
+            <button id="modalFavBtn" class="px-3 py-1 border rounded">❤ Favorite</button>
+            <button id="closeModal" class="text-lg px-3">✕</button>
+          </div>
+        </div>
+        <div class="p-4 grid grid-cols-1 md:grid-cols-2 gap-4">
+          <img id="modalImage" src="" alt="" class="w-full h-64 object-cover rounded" />
+          <div>
+            <p id="modalDesc" class="text-sm mb-3"></p>
+            <div id="modalFeatures" class="flex flex-wrap gap-2 mb-3"></div>
+            <div class="mb-3"><strong>Price:</strong> ৳<span id="modalPrice"></span> / night</div>
+            <div class="flex gap-2">
+              <button id="modalHostBtn" class="px-3 py-2 border rounded">Host details</button>
+              <a id="contactHostLink" class="px-3 py-2 border rounded" href="#">Contact host</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Host Modal -->
+  <div id="hostModal" class="fixed inset-0 hidden items-center justify-center z-50">
+    <div class="absolute inset-0 modal-backdrop"></div>
+    <div class="relative max-w-md w-full mx-4">
+      <div class="bg-[var(--surface)] rounded-xl overflow-hidden shadow-lg p-4">
+        <div class="flex justify-between items-center mb-3">
+          <h4 class="font-semibold">Host details</h4>
+          <button id="closeHost" class="text-lg">✕</button>
+        </div>
+        <div id="hostContent" class="text-sm"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Minimal footer -->
+  <footer class="max-w-6xl mx-auto px-4 py-6 text-sm muted">
+    <div>© 2025 Gram2City — Connecting travelers to real Bangladesh. Built as an MVP.</div>
+  </footer>
+
+  <!-- ================= JS: APP LOGIC (all-in-one SPA) ================= -->
+  <!-- NOTE: This file expects /data/stays.js to be present and set window.STAYS_DATA = [...] -->
+  <script>
+    /* App config */
+    const PER_PAGE = 12;
+    let currentPage = 1;
+    let activeCategory = "all";
+    let currentSort = "relevance";
+    let currentList = [];
+    let favorites = new Set(JSON.parse(localStorage.getItem("gram2city_favs") || "[]"));
+
+    /* Utilities */
+    function saveFavorites() {
+      localStorage.setItem("gram2city_favs", JSON.stringify([...favorites]));
+    }
+    function escapeHtml(s) {
+      if (s === null || s === undefined) return "";
+      return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+    }
+    function byId(id){ return document.getElementById(id); }
+
+    /* Render card */
+    function createCard(stay) {
+      const favClass = favorites.has(stay.id) ? "bg-rose-50" : "";
+      const features = (stay.features||[]).map(f => `<span class="chip">${escapeHtml(f)}</span>`).join(" ");
+      // safe template
+      return `
+        <article class="stay-card ${favClass} bg-[var(--surface)] rounded-xl border overflow-hidden flex flex-col h-full">
+          <div class="relative h-40 w-full overflow-hidden">
+            <img src="${escapeHtml(stay.image||'')}" alt="${escapeHtml(stay.title||'')}" class="w-full h-full object-cover"/>
+            <div class="absolute top-3 right-3 bg-white/90 text-[13px] font-semibold rounded-full px-3 py-1">৳${escapeHtml(stay.pricePerNight)}</div>
+            <div class="absolute bottom-3 left-3 text-[11px] bg-slate-900/70 text-white px-2 py-1 rounded-full">${escapeHtml(stay.category||'')}</div>
+          </div>
+          <div class="p-4 flex-1 flex flex-col">
+            <div class="text-[11px] muted uppercase">${escapeHtml(stay.location||'')}</div>
+            <h3 class="mt-1 font-semibold text-slate-800">${escapeHtml(stay.title||'')}</h3>
+            <div class="text-[12px] muted mt-1">${escapeHtml(stay.travelerFocus==='international' ? 'Good for international guests' : stay.travelerFocus==='domestic' ? 'Popular with domestic travelers' : 'Suitable for all travelers')}</div>
+            <div class="mt-3 flex flex-wrap gap-2">${features}</div>
+            <div class="mt-4 flex gap-2">
+              <button class="openDetail flex-1 text-sm border rounded px-3 py-2" data-id="${stay.id}">View</button>
+              <button class="favBtn text-sm border rounded px-3 py-2" data-id="${stay.id}">${favorites.has(stay.id)?'♥':'♡'}</button>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    /* Render current page */
+    function renderPage(list) {
+      const grid = byId('staysGrid');
+      const start = (currentPage - 1) * PER_PAGE;
+      const pageItems = list.slice(start, start + PER_PAGE);
+      grid.innerHTML = pageItems.map(createCard).join('');
+      byId('resultCount').textContent = `Showing ${list.length} stay(s)`;
+      const totalPages = Math.max(1, Math.ceil(list.length / PER_PAGE));
+      byId('pageInfo').textContent = `Page ${currentPage} / ${totalPages}`;
+
+      // wire card buttons
+      document.querySelectorAll('.openDetail').forEach(btn=>{
+        btn.addEventListener('click', ()=> openModal(Number(btn.dataset.id)));
+      });
+      document.querySelectorAll('.favBtn').forEach(btn=>{
+        btn.addEventListener('click', ()=> toggleFav(Number(btn.dataset.id), btn));
+      });
+    }
+
+    /* Sorting */
+    function applySort(list) {
+      if (currentSort === 'price-asc') return list.slice().sort((a,b)=>a.pricePerNight - b.pricePerNight);
+      if (currentSort === 'price-desc') return list.slice().sort((a,b)=>b.pricePerNight - a.pricePerNight);
+      return list;
+    }
+
+    /* Filters + search */
+    function applyFilters() {
+      const dest = (byId('destinationInput').value || '').toLowerCase().trim();
+      const traveler = byId('travelerTypeSelect').value;
+      const maxBudgetVal = byId('maxBudgetInput').value;
+      const maxBudget = maxBudgetVal ? Number(maxBudgetVal) : null;
+
+      let list = Array.isArray(window.STAYS_DATA) ? window.STAYS_DATA.slice() : [];
+
+      if (activeCategory && activeCategory !== 'all') {
+        list = list.filter(s => (s.category||'').toLowerCase() === activeCategory.toLowerCase());
+      }
+
+      if (dest) {
+        list = list.filter(s=>{
+          const combined = [s.location, s.district, s.area, s.title, s.category].filter(Boolean).join(' ').toLowerCase();
+          return combined.includes(dest);
+        });
+      }
+
+      if (traveler && traveler !== 'any') {
+        list = list.filter(s => s.travelerFocus === traveler || s.travelerFocus === 'any');
+      }
+
+      if (maxBudget && !isNaN(maxBudget)) {
+        list = list.filter(s => Number(s.pricePerNight) <= maxBudget);
+      }
+
+      list = applySort(list);
+      currentList = list;
+      currentPage = 1;
+      renderPage(currentList);
+    }
+
+    /* Favorites */
+    function toggleFav(id, btnEl) {
+      if (favorites.has(id)) favorites.delete(id);
+      else favorites.add(id);
+      saveFavorites();
+      if (btnEl) btnEl.textContent = favorites.has(id)?'♥':'♡';
+      renderPage(currentList);
+    }
+
+    /* Modal logic */
+    function openModal(id) {
+      const s = (window.STAYS_DATA||[]).find(x=>x.id===id);
+      if (!s) return;
+      byId('modalTitle').textContent = s.title;
+      byId('modalLocation').textContent = s.location + ' — ' + s.district;
+      byId('modalImage').src = s.image || '';
+      byId('modalDesc').textContent = s.description || '';
+      byId('modalPrice').textContent = s.pricePerNight || '';
+      byId('modalFeatures').innerHTML = (s.features||[]).map(f=>`<span class="chip">${escapeHtml(f)}</span>`).join(' ');
+      byId('modalFavBtn').onclick = () => { favorites.add(s.id); saveFavorites(); renderPage(currentList); };
+      byId('modalHostBtn').onclick = () => openHost(s.host || {});
+      byId('contactHostLink').href = `tel:${encodeURIComponent((s.host && s.host.phone) || '')}`;
+      byId('stayModal').classList.remove('hidden');
+    }
+    function closeModal() { byId('stayModal').classList.add('hidden'); }
+
+    function openHost(host) {
+      byId('hostContent').innerHTML = `<div class="font-semibold">${escapeHtml(host.name||'')}</div>
+        <div class="muted mt-2">${escapeHtml(host.bio||'')}</div>
+        <div class="mt-3">Phone: <code>${escapeHtml(host.phone||'')}</code></div>`;
+      byId('hostModal').classList.remove('hidden');
+    }
+    function closeHost() { byId('hostModal').classList.add('hidden'); }
+
+    /* Initialization & events */
+    document.addEventListener('DOMContentLoaded', ()=> {
+      // Theme
+      const themeBtn = byId('themeToggle');
+      const savedTheme = localStorage.getItem('gram2city_theme') || 'light';
+      if (savedTheme === 'dark') document.documentElement.setAttribute('data-theme','dark');
+      themeBtn.textContent = savedTheme === 'dark' ? '☀️' : '🌙';
+      themeBtn.addEventListener('click', ()=> {
+        const now = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+        if (now === 'dark') document.documentElement.setAttribute('data-theme','dark'); else document.documentElement.removeAttribute('data-theme');
+        themeBtn.textContent = now === 'dark' ? '☀️' : '🌙';
+        localStorage.setItem('gram2city_theme', now);
+      });
+
+      // Wire search
+      byId('searchBtn').addEventListener('click', applyFilters);
+      byId('clearBtn').addEventListener('click', ()=>{
+        byId('destinationInput').value = '';
+        byId('travelerTypeSelect').value = 'any';
+        byId('maxBudgetInput').value = '';
+        activeCategory = 'all';
+        document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('bg-emerald-600','text-white'));
+        document.querySelector('.cat-btn[data-cat="all"]').classList.add('bg-emerald-600','text-white');
+        applyFilters();
+      });
+
+      // Categories
+      document.querySelectorAll('.cat-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          document.querySelectorAll('.cat-btn').forEach(b=>b.classList.remove('bg-emerald-600','text-white'));
+          btn.classList.add('bg-emerald-600','text-white');
+          activeCategory = btn.dataset.cat || 'all';
+          applyFilters();
+        });
+      });
+
+      // Sort & pagination
+      byId('sortSelect').addEventListener('change', (e)=>{ currentSort = e.target.value; applyFilters(); });
+      byId('prevPage').addEventListener('click', ()=> { if (currentPage>1) { currentPage--; renderPage(currentList); }});
+      byId('nextPage').addEventListener('click', ()=> { if (currentPage < Math.ceil(currentList.length / PER_PAGE)) { currentPage++; renderPage(currentList); }});
+
+      // Modal closers
+      byId('closeModal').addEventListener('click', closeModal);
+      byId('stayModal').addEventListener('click', (ev)=> { if (ev.target === byId('stayModal')) closeModal(); });
+      byId('closeHost').addEventListener('click', closeHost);
+      byId('hostModal').addEventListener('click', (ev)=> { if (ev.target === byId('hostModal')) closeHost(); });
+
+      // Favorites view
+      byId('favoritesBtn').addEventListener('click', ()=> {
+        const favIds = [...favorites];
+        const list = (window.STAYS_DATA || []).filter(s => favIds.includes(s.id));
+        currentList = list;
+        currentPage = 1;
+        renderPage(currentList);
+      });
+
+      // initial category highlight
+      const allBtn = document.querySelector('.cat-btn[data-cat="all"]');
+      if (allBtn) allBtn.classList.add('bg-emerald-600','text-white');
+
+      // Wait for dataset (window.STAYS_DATA) — if it's already there, apply filters immediately
+      if (Array.isArray(window.STAYS_DATA)) {
+        applyFilters();
+      } else {
+        // short watcher: checks for dataset for a few seconds
+        let tries = 0;
+        const watcher = setInterval(()=> {
+          tries++;
+          if (Array.isArray(window.STAYS_DATA)) {
+            applyFilters();
+            clearInterval(watcher);
+          } else if (tries > 30) {
+            clearInterval(watcher);
+            // show helpful message in grid
+            byId('staysGrid').innerHTML = '<div class="col-span-full text-sm muted p-6">Data not loaded. Make sure <code>/data/stays.js</code> is present and sets <code>window.STAYS_DATA</code>.</div>';
+          }
+        }, 200);
+      }
+    });
+  </script>
+</body>
+</html>
